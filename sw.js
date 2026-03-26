@@ -1,9 +1,17 @@
-const CACHE_NAME = "memo-clipper-v1";
-const ASSETS = ["/", "/index.html", "/style.css", "/app.js", "/manifest.json"];
+const CACHE_NAME = "memo-clipper-v2";
 
 self.addEventListener("install", (event) => {
+  // Cache assets relative to the SW scope
+  const scope = self.registration.scope;
+  const assets = [
+    scope,
+    scope + "index.html",
+    scope + "style.css",
+    scope + "app.js",
+    scope + "manifest.json",
+  ];
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(assets))
   );
   self.skipWaiting();
 });
@@ -19,10 +27,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+  const scope = new URL(self.registration.scope);
 
   // Handle share target: redirect shared data to the app with query params
-  if (url.pathname === "/share" && event.request.method === "GET") {
-    event.respondWith(Response.redirect(`/?${url.searchParams.toString()}`));
+  if (url.pathname === scope.pathname + "share" && event.request.method === "GET") {
+    event.respondWith(Response.redirect(`${scope.pathname}?${url.searchParams.toString()}`));
     return;
   }
 
