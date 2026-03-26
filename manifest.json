@@ -2,7 +2,7 @@
   "name": "Memo Clipper",
   "short_name": "MemoClip",
   "description": "X の投稿を Obsidian にマークダウンで保存",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
@@ -22,7 +22,7 @@
     }
   ],
   "share_target": {
-    "action": "/share",
+    "action": "share",
     "method": "GET",
     "params": {
       "title": "title",
