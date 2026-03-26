@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Memo Clipper</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📎</text></svg>">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📎 Memo Clipper</h1>
+      <p class="subtitle">X の投稿を Obsidian に保存</p>
+    </header>
+
+    <main>
+      <section class="input-section">
+        <label for="url-input">X (Twitter) の URL を貼り付け</label>
+        <div class="input-group">
+          <input type="url" id="url-input" placeholder="https://x.com/user/status/..." autocomplete="off">
+          <button id="paste-btn" title="貼り付け">📋</button>
+        </div>
+        <button id="fetch-btn" class="primary-btn" disabled>取得する</button>
+      </section>
+
+      <section id="preview-section" class="preview-section hidden">
+        <h2>プレビュー</h2>
+        <div id="preview" class="preview-content"></div>
+        <textarea id="markdown-output" rows="10" readonly></textarea>
+
+        <div class="settings-row">
+          <label for="vault-input">Vault 名</label>
+          <input type="text" id="vault-input" placeholder="My Vault">
+        </div>
+        <div class="settings-row">
+          <label for="folder-input">保存フォルダ</label>
+          <input type="text" id="folder-input" placeholder="Clippings/X">
+        </div>
+
+        <div class="action-buttons">
+          <button id="save-btn" class="primary-btn">Obsidian に保存</button>
+          <button id="copy-btn" class="secondary-btn">マークダウンをコピー</button>
+        </div>
+      </section>
+
+      <section id="error-section" class="error-section hidden">
+        <p id="error-message"></p>
+      </section>
+
+      <section id="loading-section" class="loading-section hidden">
+        <div class="spinner"></div>
+        <p>取得中...</p>
+      </section>
+    </main>
+
+    <footer>
+      <p>ホーム画面に追加すると X から直接共有できます</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
