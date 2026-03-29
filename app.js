@@ -152,17 +152,25 @@
       if (!resp.ok) throw new Error(`API error: ${resp.status}`);
 
       const data = await resp.json();
-      if (!data.tweet) throw new Error("ツイートが見つかりませんでした");
+      console.log("FxTwitter API response:", JSON.stringify(data, null, 2));
+
+      const tweet = data.tweet || data;
+      if (!tweet || (!tweet.text && !tweet.full_text)) {
+        throw new Error("ツイートが見つかりませんでした");
+      }
+
+      // Try multiple possible text fields
+      const tweetText = tweet.full_text || tweet.text || tweet.content || "";
 
       currentData = {
-        text: data.tweet.text || "",
-        author: data.tweet.author?.name || screenName,
-        handle: data.tweet.author?.screen_name || screenName,
-        date: data.tweet.created_at || "",
-        likes: data.tweet.likes || 0,
-        retweets: data.tweet.retweets || 0,
-        url: data.tweet.url || url,
-        media: data.tweet.media?.all || [],
+        text: tweetText,
+        author: tweet.author?.name || tweet.user?.name || screenName,
+        handle: tweet.author?.screen_name || tweet.user?.screen_name || screenName,
+        date: tweet.created_at || tweet.date || "",
+        likes: tweet.likes ?? tweet.favorite_count ?? 0,
+        retweets: tweet.retweets ?? tweet.retweet_count ?? 0,
+        url: tweet.url || url,
+        media: tweet.media?.all || tweet.media?.photos || tweet.media || [],
       };
 
       renderPreview();
