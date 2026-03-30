@@ -218,6 +218,34 @@
             tweetText = val;
             break;
           }
+          // If the field is an object, try to extract text from it
+          if (val && typeof val === "object" && !Array.isArray(val)) {
+            const extracted = val.text || val.full_text || val.content || val.body || val.value || "";
+            if (typeof extracted === "string" && extracted.trim()) {
+              tweetText = extracted;
+              break;
+            }
+          }
+        }
+
+        // For note tweets: try to extract full text from nested structures
+        if (tweet.is_note_tweet) {
+          // Try note_tweet, noteTweet fields
+          for (const ntField of ["note_tweet", "noteTweet", "note"]) {
+            const nt = tweet[ntField];
+            if (nt && typeof nt === "object") {
+              const ntText = nt.text || nt.full_text || nt.content || nt.raw_text || "";
+              if (typeof ntText === "string" && ntText.length > tweetText.length) {
+                tweetText = ntText;
+              }
+            }
+          }
+          // Debug: log all object-type fields for note tweets
+          for (const [k, v] of Object.entries(tweet)) {
+            if (v && typeof v === "object") {
+              console.log(`note_tweet field "${k}":`, JSON.stringify(v).slice(0, 500));
+            }
+          }
         }
 
         // Note tweets: check article field
