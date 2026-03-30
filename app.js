@@ -234,61 +234,89 @@
         }
         showDebug(`${api} fields`, fieldInfo);
 
-        // Find text from multiple possible fields
-        let tweetText = "";
+        // Collect text candidates from all possible sources
+        const candidates = [];
+
+        // 1. Direct string fields
         for (const field of ["raw_text", "full_text", "text", "content"]) {
           const val = tweet[field];
           if (val && typeof val === "string" && val.trim()) {
-            tweetText = val;
-            break;
+            candidates.push(val);
           }
-          // If the field is an object, try to extract text from it
+          // If the field is an object, extract text from it
           if (val && typeof val === "object" && !Array.isArray(val)) {
             const extracted = val.text || val.full_text || val.content || val.body || val.value || "";
             if (typeof extracted === "string" && extracted.trim()) {
-              tweetText = extracted;
-              break;
+              candidates.push(extracted);
             }
           }
         }
 
-        // For note tweets: try to extract full text from nested structures
+        // 2. Article field (for Twitter Articles / note tweets)
+        if (tweet.article && typeof tweet.article === "object") {
+          const a = tweet.article;
+          // Try string fields in article
+          for (const f of ["content", "text", "body", "preview_text", "raw_text"]) {
+            const val = a[f];
+            if (val && typeof val === "string" && val.trim()) {
+              candidates.push(val);
+            }
+            // content might be an object with its own text
+            if (val && typeof val === "object" && !Array.isArray(val)) {
+              const inner = val.text || val.content || val.body || val.value || "";
+              if (typeof inner === "string" && inner.trim()) {
+                candidates.push(inner);
+              }
+              // content might be structured (like TipTap/ProseMirror JSON)
+              // Try to extract all text recursively
+              const deep = extractAllText(val);
+              if (deep.length > 20) {
+                candidates.push(deep);
+              }
+            }
+            // content might be an array of blocks
+            if (Array.isArray(val)) {
+              const blockText = val
+                .map(b => typeof b === "string" ? b : (b?.text || b?.content || ""))
+                .filter(Boolean)
+                .join("\n\n");
+              if (blockText.trim()) {
+                candidates.push(blockText);
+              }
+              // Also try recursive extraction
+              const deep = extractAllText(val);
+              if (deep.length > 20) {
+                candidates.push(deep);
+              }
+            }
+          }
+          // If article itself has title, prepend it
+          if (a.title && typeof a.title === "string") {
+            showDebug("article.title", a.title);
+          }
+        }
+
+        // 3. Note tweet fields
         if (tweet.is_note_tweet) {
-          // Try note_tweet, noteTweet fields
           for (const ntField of ["note_tweet", "noteTweet", "note"]) {
             const nt = tweet[ntField];
             if (nt && typeof nt === "object") {
               const ntText = nt.text || nt.full_text || nt.content || nt.raw_text || "";
-              if (typeof ntText === "string" && ntText.length > tweetText.length) {
-                tweetText = ntText;
+              if (typeof ntText === "string" && ntText.trim()) {
+                candidates.push(ntText);
               }
-            }
-          }
-          // Debug: log all object-type fields for note tweets
-          for (const [k, v] of Object.entries(tweet)) {
-            if (v && typeof v === "object") {
-              console.log(`note_tweet field "${k}":`, JSON.stringify(v).slice(0, 500));
             }
           }
         }
 
-        // Note tweets: check article field
-        if (!tweetText && tweet.article) {
-          const a = tweet.article;
-          if (typeof a === "string") {
-            tweetText = a;
-          } else if (a && typeof a === "object") {
-            for (const f of ["text", "content", "body", "raw_text"]) {
-              if (a[f] && typeof a[f] === "string" && a[f].trim()) {
-                tweetText = a[f];
-                break;
-              }
-            }
-            if (!tweetText && a.html) {
-              tweetText = a.html.replace(/<[^>]+>/g, "").trim();
-            }
+        // Pick the longest candidate
+        let tweetText = "";
+        for (const c of candidates) {
+          if (c.length > tweetText.length) {
+            tweetText = c;
           }
         }
+        showDebug("candidates lengths", candidates.map((c, i) => `[${i}] ${c.length} chars`));
 
         // Check quoted tweet or retweet for text
         if (!tweetText) {
@@ -413,6 +441,31 @@
       console.warn("oEmbed API failed:", e.message);
       return null;
     }
+  }
+
+  // Recursively extract all text from a structured content object (like ProseMirror/TipTap JSON)
+  function extractAllText(obj) {
+    if (!obj) return "";
+    if (typeof obj === "string") return obj;
+    if (Array.isArray(obj)) {
+      return obj.map(item => extractAllText(item)).filter(Boolean).join("\n");
+    }
+    if (typeof obj !== "object") return "";
+    // Common rich text JSON structures
+    let parts = [];
+    if (obj.text && typeof obj.text === "string") {
+      parts.push(obj.text);
+    }
+    if (obj.value && typeof obj.value === "string") {
+      parts.push(obj.value);
+    }
+    // Recurse into children/content arrays
+    for (const key of ["content", "children", "blocks", "paragraphs", "items", "nodes"]) {
+      if (Array.isArray(obj[key])) {
+        parts.push(extractAllText(obj[key]));
+      }
+    }
+    return parts.filter(Boolean).join("\n");
   }
 
   function findLongestString(obj, maxDepth) {
