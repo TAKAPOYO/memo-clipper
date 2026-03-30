@@ -23,19 +23,30 @@
   const vaultInput = $("#vault-input");
   const folderInput = $("#folder-input");
   const debugSection = $("#debug-section");
+  const debugContent = $("#debug-content");
   const debugOutput = $("#debug-output");
+  const debugToggle = $("#debug-toggle");
 
   let currentData = null;
+  let hasDebugData = false;
+
+  debugToggle.addEventListener("click", () => {
+    debugContent.classList.toggle("hidden");
+  });
 
   function showDebug(label, obj) {
+    hasDebugData = true;
     debugSection.classList.remove("hidden");
+    debugToggle.classList.remove("hidden");
     const text = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
     debugOutput.textContent += `=== ${label} ===\n${text}\n\n`;
   }
 
   function clearDebug() {
     debugOutput.textContent = "";
+    debugContent.classList.add("hidden");
     debugSection.classList.add("hidden");
+    hasDebugData = false;
   }
 
   // Load saved settings
