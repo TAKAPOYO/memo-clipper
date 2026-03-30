@@ -1,7 +1,10 @@
 (() => {
   "use strict";
 
-  const FXTWITTER_API = "https://api.fxtwitter.com";
+  const TWEET_APIS = [
+    "https://api.fxtwitter.com",
+    "https://api.vxtwitter.com",
+  ];
   const STORAGE_KEY_VAULT = "memo-clipper-vault";
   const STORAGE_KEY_FOLDER = "memo-clipper-folder";
 
@@ -148,11 +151,26 @@
     showLoading();
 
     try {
-      const resp = await fetch(`${FXTWITTER_API}/${screenName}/status/${tweetId}`);
-      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+      let data = null;
+      let lastError = null;
 
-      const data = await resp.json();
-      console.log("FxTwitter API response:", JSON.stringify(data, null, 2));
+      for (const api of TWEET_APIS) {
+        try {
+          const resp = await fetch(`${api}/${screenName}/status/${tweetId}`);
+          if (!resp.ok) {
+            lastError = new Error(`${api}: ${resp.status}`);
+            continue;
+          }
+          data = await resp.json();
+          console.log(`API response (${api}):`, JSON.stringify(data, null, 2));
+          break;
+        } catch (e) {
+          lastError = e;
+          console.warn(`${api} failed:`, e.message);
+        }
+      }
+
+      if (!data) throw lastError || new Error("全てのAPIに接続できませんでした");
 
       const tweet = data.tweet || data;
       if (!tweet || (!tweet.text && !tweet.full_text)) {
