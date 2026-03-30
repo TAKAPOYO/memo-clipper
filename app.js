@@ -151,8 +151,20 @@
     showLoading();
 
     try {
-      currentData = await fetchFromFxTwitter(screenName, tweetId, url)
-                 || await fetchFromSyndication(tweetId, url);
+      // Try all sources and pick the one with the longest text
+      const results = await Promise.allSettled([
+        fetchFromFxTwitter(screenName, tweetId, url),
+        fetchFromSyndication(tweetId, url),
+      ]);
+
+      currentData = null;
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value && r.value.text) {
+          if (!currentData || r.value.text.length > currentData.text.length) {
+            currentData = r.value;
+          }
+        }
+      }
 
       if (!currentData || !currentData.text) {
         throw new Error("ツイートのテキストを取得できませんでした");
