@@ -1,4 +1,4 @@
-const CACHE_NAME = "memo-clipper-v3";
+const CACHE_NAME = "memo-clipper-v4";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
