@@ -174,8 +174,7 @@
 
       // Try to find tweet data in various response structures
       const tweet = data.tweet || data.data || data;
-      const tweetText = tweet.full_text || tweet.text || tweet.content ||
-                        tweet.tweet?.text || tweet.tweet?.full_text || "";
+      const tweetText = tweet.raw_text || tweet.full_text || tweet.text || tweet.content || "";
 
       if (!tweetText) {
         // Show raw response keys so user can report the structure
