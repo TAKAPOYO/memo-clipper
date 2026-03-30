@@ -22,8 +22,21 @@
   const loadingSection = $("#loading-section");
   const vaultInput = $("#vault-input");
   const folderInput = $("#folder-input");
+  const debugSection = $("#debug-section");
+  const debugOutput = $("#debug-output");
 
   let currentData = null;
+
+  function showDebug(label, obj) {
+    debugSection.classList.remove("hidden");
+    const text = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+    debugOutput.textContent += `=== ${label} ===\n${text}\n\n`;
+  }
+
+  function clearDebug() {
+    debugOutput.textContent = "";
+    debugSection.classList.add("hidden");
+  }
 
   // Load saved settings
   vaultInput.value = localStorage.getItem(STORAGE_KEY_VAULT) || "";
@@ -149,6 +162,7 @@
     }
 
     showLoading();
+    clearDebug();
 
     try {
       // Try all sources in parallel and pick the one with the longest text
@@ -205,10 +219,20 @@
         if (!resp.ok) continue;
 
         const data = await resp.json();
-        console.log(`API response (${api}):`, JSON.stringify(data, null, 2));
 
         const tweet = data.tweet || data.data || data;
         if (!tweet) continue;
+
+        // Show field types and lengths for debugging
+        const fieldInfo = {};
+        for (const [k, v] of Object.entries(tweet)) {
+          if (v == null) fieldInfo[k] = "null";
+          else if (typeof v === "string") fieldInfo[k] = `string(${v.length})`;
+          else if (Array.isArray(v)) fieldInfo[k] = `array(${v.length})`;
+          else if (typeof v === "object") fieldInfo[k] = `object(${Object.keys(v).join(",")})`;
+          else fieldInfo[k] = typeof v;
+        }
+        showDebug(`${api} fields`, fieldInfo);
 
         // Find text from multiple possible fields
         let tweetText = "";

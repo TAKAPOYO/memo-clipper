@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📎</text></svg>">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=20260330e">
+  <link rel="stylesheet" href="style.css?v=20260330f">
 </head>
 <body>
   <div class="container">
@@ -53,6 +53,11 @@
         <p id="error-message"></p>
       </section>
 
+      <section id="debug-section" class="hidden" style="margin-top:16px;padding:12px;background:#0f0f23;border:1px solid #444;border-radius:8px;max-height:300px;overflow:auto;">
+        <h3 style="color:#8be9fd;font-size:0.85rem;margin-bottom:8px;">DEBUG: APIレスポンス</h3>
+        <pre id="debug-output" style="color:#aaa;font-size:0.7rem;white-space:pre-wrap;word-break:break-all;"></pre>
+      </section>
+
       <section id="loading-section" class="loading-section hidden">
         <div class="spinner"></div>
         <p>取得中...</p>
@@ -64,6 +69,6 @@
     </footer>
   </div>
 
-  <script src="app.js?v=20260330e"></script>
+  <script src="app.js?v=20260330f"></script>
 </body>
 </html>
