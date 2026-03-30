@@ -195,16 +195,29 @@
           if (typeof a === "string") {
             tweetText = a;
           } else if (a && typeof a === "object") {
-            // article might have nested text fields
             for (const f of ["text", "content", "body", "raw_text"]) {
               if (a[f] && typeof a[f] === "string" && a[f].trim()) {
                 tweetText = a[f];
                 break;
               }
             }
-            // article might itself contain HTML or markdown content
             if (!tweetText && a.html) {
               tweetText = a.html.replace(/<[^>]+>/g, "").trim();
+            }
+          }
+        }
+
+        // Check quoted tweet or retweet for text
+        if (!tweetText) {
+          for (const nested of [tweet.quote, tweet.quoted_tweet, tweet.retweet, tweet.retweeted_tweet]) {
+            if (nested && typeof nested === "object") {
+              for (const f of ["raw_text", "full_text", "text", "content"]) {
+                if (nested[f] && typeof nested[f] === "string" && nested[f].trim()) {
+                  tweetText = nested[f];
+                  break;
+                }
+              }
+              if (tweetText) break;
             }
           }
         }
@@ -277,7 +290,7 @@
     if (maxDepth <= 0 || !obj || typeof obj !== "object") return "";
     if (Array.isArray(obj)) return "";
     let longest = "";
-    const skip = new Set(["url", "id", "lang", "source", "color", "provider", "media"]);
+    const skip = new Set(["url", "id", "lang", "source", "color", "provider", "media", "author", "user", "replying_to", "replying_to_status", "twitter_card", "reposted_by"]);
     for (const [key, val] of Object.entries(obj)) {
       if (skip.has(key)) continue;
       if (typeof val === "string" && val.length > longest.length && val.length > 20) {
