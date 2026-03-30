@@ -151,18 +151,37 @@
     showLoading();
 
     try {
-      // Try all sources and pick the one with the longest text
+      // Try all sources in parallel and pick the one with the longest text
       const results = await Promise.allSettled([
         fetchFromFxTwitter(screenName, tweetId, url),
         fetchFromSyndication(tweetId, url),
+        fetchFromOEmbed(url),
       ]);
 
+      // Collect all successful results
+      const successes = results
+        .filter(r => r.status === "fulfilled" && r.value && r.value.text)
+        .map(r => r.value);
+
+      // Pick the result with the longest text
       currentData = null;
-      for (const r of results) {
-        if (r.status === "fulfilled" && r.value && r.value.text) {
-          if (!currentData || r.value.text.length > currentData.text.length) {
-            currentData = r.value;
-          }
+      let longestText = "";
+      for (const s of successes) {
+        if (s.text.length > longestText.length) {
+          longestText = s.text;
+          currentData = s;
+        }
+      }
+
+      // If a richer source (FxTwitter) has metadata but shorter text,
+      // merge: use the longest text with the richer metadata
+      if (currentData && successes.length > 1) {
+        const richest = successes.find(s => s.likes > 0 || s.retweets > 0);
+        if (richest && richest !== currentData) {
+          currentData = {
+            ...richest,
+            text: longestText,
+          };
         }
       }
 
@@ -294,6 +313,52 @@
       };
     } catch (e) {
       console.warn("Syndication API failed:", e.message);
+      return null;
+    }
+  }
+
+  async function fetchFromOEmbed(originalUrl) {
+    try {
+      const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(originalUrl)}&omit_script=true&dnt=true`;
+      const resp = await fetch(oembedUrl);
+      if (!resp.ok) return null;
+
+      const data = await resp.json();
+      console.log("oEmbed API response:", JSON.stringify(data, null, 2));
+
+      if (!data.html) return null;
+
+      // Extract text from the HTML blockquote
+      // The HTML format is: <blockquote><p>TWEET TEXT</p> &mdash; Author (@handle) <a>date</a></blockquote>
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(data.html, "text/html");
+
+      // Get text from all <p> tags in the blockquote
+      const paragraphs = doc.querySelectorAll("blockquote p");
+      const textParts = [];
+      for (const p of paragraphs) {
+        textParts.push(p.textContent.trim());
+      }
+      const tweetText = textParts.join("\n\n");
+      if (!tweetText) return null;
+
+      // Extract author from the HTML
+      const authorMatch = data.html.match(/&mdash;\s*(.+?)\s*\((@\w+)\)/);
+      const author = authorMatch ? authorMatch[1].trim() : data.author_name || "";
+      const handle = authorMatch ? authorMatch[2].replace("@", "") : "";
+
+      return {
+        text: tweetText,
+        author: author,
+        handle: handle,
+        date: "",
+        likes: 0,
+        retweets: 0,
+        url: data.url || originalUrl,
+        media: [],
+      };
+    } catch (e) {
+      console.warn("oEmbed API failed:", e.message);
       return null;
     }
   }
