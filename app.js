@@ -151,65 +151,12 @@
     showLoading();
 
     try {
-      let data = null;
-      let lastError = null;
+      currentData = await fetchFromFxTwitter(screenName, tweetId, url)
+                 || await fetchFromSyndication(tweetId, url);
 
-      for (const api of TWEET_APIS) {
-        try {
-          const resp = await fetch(`${api}/${screenName}/status/${tweetId}`);
-          if (!resp.ok) {
-            lastError = new Error(`${api}: ${resp.status}`);
-            continue;
-          }
-          data = await resp.json();
-          console.log(`API response (${api}):`, JSON.stringify(data, null, 2));
-          break;
-        } catch (e) {
-          lastError = e;
-          console.warn(`${api} failed:`, e.message);
-        }
+      if (!currentData || !currentData.text) {
+        throw new Error("ツイートのテキストを取得できませんでした");
       }
-
-      if (!data) throw lastError || new Error("全てのAPIに接続できませんでした");
-
-      // Try to find tweet data in various response structures
-      const tweet = data.tweet || data.data || data;
-
-      // Try multiple text fields, including article for note tweets
-      let tweetText = "";
-      const textFields = ["raw_text", "full_text", "text", "content"];
-      for (const field of textFields) {
-        const val = tweet[field];
-        if (val && typeof val === "string" && val.trim()) {
-          tweetText = val;
-          break;
-        }
-      }
-
-      // Note tweets may store text in article or nested objects
-      if (!tweetText && tweet.article) {
-        const article = tweet.article;
-        tweetText = article.text || article.content || article.body ||
-                    (typeof article === "string" ? article : "") || "";
-      }
-
-      if (!tweetText) {
-        // Show actual values for debugging
-        const vals = textFields.map(f => `${f}=${JSON.stringify(tweet[f])}`).join(", ");
-        const articleVal = JSON.stringify(tweet.article)?.slice(0, 200) || "null";
-        throw new Error(`テキスト未検出。${vals}, article=${articleVal}`);
-      }
-
-      currentData = {
-        text: tweetText,
-        author: tweet.author?.name || tweet.user?.name || screenName,
-        handle: tweet.author?.screen_name || tweet.user?.screen_name || screenName,
-        date: tweet.created_at || tweet.date || "",
-        likes: tweet.likes ?? tweet.favorite_count ?? 0,
-        retweets: tweet.retweets ?? tweet.retweet_count ?? 0,
-        url: tweet.url || url,
-        media: tweet.media?.all || tweet.media?.photos || tweet.media || [],
-      };
 
       renderPreview();
       hideLoading();
@@ -218,6 +165,103 @@
       hideLoading();
       showError(`取得に失敗しました: ${err.message}`);
     }
+  }
+
+  async function fetchFromFxTwitter(screenName, tweetId, originalUrl) {
+    for (const api of TWEET_APIS) {
+      try {
+        const resp = await fetch(`${api}/${screenName}/status/${tweetId}`);
+        if (!resp.ok) continue;
+
+        const data = await resp.json();
+        console.log(`API response (${api}):`, JSON.stringify(data, null, 2));
+
+        const tweet = data.tweet || data.data || data;
+        if (!tweet) continue;
+
+        // Find text from multiple possible fields
+        let tweetText = "";
+        for (const field of ["raw_text", "full_text", "text", "content"]) {
+          const val = tweet[field];
+          if (val && typeof val === "string" && val.trim()) {
+            tweetText = val;
+            break;
+          }
+        }
+
+        // Note tweets: check article field
+        if (!tweetText && tweet.article) {
+          const a = tweet.article;
+          tweetText = (typeof a === "string" ? a : a.text || a.content || a.body || "");
+        }
+
+        // Deep search: recursively find any string field with substantial text
+        if (!tweetText) {
+          tweetText = findLongestString(tweet, 3) || "";
+        }
+
+        if (!tweetText) continue;
+
+        return {
+          text: tweetText,
+          author: tweet.author?.name || tweet.user?.name || screenName,
+          handle: tweet.author?.screen_name || tweet.user?.screen_name || screenName,
+          date: tweet.created_at || tweet.date || "",
+          likes: tweet.likes ?? tweet.favorite_count ?? 0,
+          retweets: tweet.retweets ?? tweet.retweet_count ?? 0,
+          url: tweet.url || originalUrl,
+          media: tweet.media?.all || tweet.media?.photos || tweet.media || [],
+        };
+      } catch (e) {
+        console.warn(`${api} failed:`, e.message);
+      }
+    }
+    return null;
+  }
+
+  async function fetchFromSyndication(tweetId, originalUrl) {
+    try {
+      const resp = await fetch(
+        `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=0`
+      );
+      if (!resp.ok) return null;
+
+      const data = await resp.json();
+      console.log("Syndication API response:", JSON.stringify(data, null, 2));
+
+      const tweetText = data.text || data.full_text || "";
+      if (!tweetText) return null;
+
+      return {
+        text: tweetText,
+        author: data.user?.name || "",
+        handle: data.user?.screen_name || "",
+        date: data.created_at || "",
+        likes: data.favorite_count ?? 0,
+        retweets: data.retweet_count ?? 0,
+        url: originalUrl,
+        media: data.mediaDetails || data.photos || [],
+      };
+    } catch (e) {
+      console.warn("Syndication API failed:", e.message);
+      return null;
+    }
+  }
+
+  function findLongestString(obj, maxDepth) {
+    if (maxDepth <= 0 || !obj || typeof obj !== "object") return "";
+    let longest = "";
+    const skip = new Set(["url", "id", "lang", "source", "color", "provider"]);
+    for (const [key, val] of Object.entries(obj)) {
+      if (skip.has(key)) continue;
+      if (typeof val === "string" && val.length > longest.length && val.length > 20) {
+        longest = val;
+      } else if (typeof val === "object" && val !== null) {
+        const nested = findLongestString(val, maxDepth - 1);
+        if (nested.length > longest.length) longest = nested;
+      }
+    }
+    return longest;
   }
 
   function renderPreview() {
