@@ -174,13 +174,30 @@
 
       // Try to find tweet data in various response structures
       const tweet = data.tweet || data.data || data;
-      const tweetText = tweet.raw_text || tweet.full_text || tweet.text || tweet.content || "";
+
+      // Try multiple text fields, including article for note tweets
+      let tweetText = "";
+      const textFields = ["raw_text", "full_text", "text", "content"];
+      for (const field of textFields) {
+        const val = tweet[field];
+        if (val && typeof val === "string" && val.trim()) {
+          tweetText = val;
+          break;
+        }
+      }
+
+      // Note tweets may store text in article or nested objects
+      if (!tweetText && tweet.article) {
+        const article = tweet.article;
+        tweetText = article.text || article.content || article.body ||
+                    (typeof article === "string" ? article : "") || "";
+      }
 
       if (!tweetText) {
-        // Show raw response keys so user can report the structure
-        const keys = Object.keys(data || {}).join(", ");
-        const tweetKeys = tweet ? Object.keys(tweet).join(", ") : "none";
-        throw new Error(`テキスト未検出。keys=[${keys}] tweet_keys=[${tweetKeys}]`);
+        // Show actual values for debugging
+        const vals = textFields.map(f => `${f}=${JSON.stringify(tweet[f])}`).join(", ");
+        const articleVal = JSON.stringify(tweet.article)?.slice(0, 200) || "null";
+        throw new Error(`テキスト未検出。${vals}, article=${articleVal}`);
       }
 
       currentData = {
