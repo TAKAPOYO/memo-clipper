@@ -172,13 +172,17 @@
 
       if (!data) throw lastError || new Error("全てのAPIに接続できませんでした");
 
-      const tweet = data.tweet || data;
-      if (!tweet || (!tweet.text && !tweet.full_text)) {
-        throw new Error("ツイートが見つかりませんでした");
-      }
+      // Try to find tweet data in various response structures
+      const tweet = data.tweet || data.data || data;
+      const tweetText = tweet.full_text || tweet.text || tweet.content ||
+                        tweet.tweet?.text || tweet.tweet?.full_text || "";
 
-      // Try multiple possible text fields
-      const tweetText = tweet.full_text || tweet.text || tweet.content || "";
+      if (!tweetText) {
+        // Show raw response keys so user can report the structure
+        const keys = Object.keys(data || {}).join(", ");
+        const tweetKeys = tweet ? Object.keys(tweet).join(", ") : "none";
+        throw new Error(`テキスト未検出。keys=[${keys}] tweet_keys=[${tweetKeys}]`);
+      }
 
       currentData = {
         text: tweetText,
