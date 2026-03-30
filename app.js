@@ -192,12 +192,31 @@
         // Note tweets: check article field
         if (!tweetText && tweet.article) {
           const a = tweet.article;
-          tweetText = (typeof a === "string" ? a : a.text || a.content || a.body || "");
+          if (typeof a === "string") {
+            tweetText = a;
+          } else if (a && typeof a === "object") {
+            // article might have nested text fields
+            for (const f of ["text", "content", "body", "raw_text"]) {
+              if (a[f] && typeof a[f] === "string" && a[f].trim()) {
+                tweetText = a[f];
+                break;
+              }
+            }
+            // article might itself contain HTML or markdown content
+            if (!tweetText && a.html) {
+              tweetText = a.html.replace(/<[^>]+>/g, "").trim();
+            }
+          }
         }
 
         // Deep search: recursively find any string field with substantial text
         if (!tweetText) {
           tweetText = findLongestString(tweet, 3) || "";
+        }
+
+        // Ensure tweetText is always a string
+        if (typeof tweetText !== "string") {
+          tweetText = JSON.stringify(tweetText);
         }
 
         if (!tweetText) continue;
@@ -229,7 +248,13 @@
       const data = await resp.json();
       console.log("Syndication API response:", JSON.stringify(data, null, 2));
 
-      const tweetText = data.text || data.full_text || "";
+      let tweetText = "";
+      for (const f of ["text", "full_text", "raw_text"]) {
+        if (data[f] && typeof data[f] === "string" && data[f].trim()) {
+          tweetText = data[f];
+          break;
+        }
+      }
       if (!tweetText) return null;
 
       return {
