@@ -275,15 +275,18 @@
 
   function findLongestString(obj, maxDepth) {
     if (maxDepth <= 0 || !obj || typeof obj !== "object") return "";
+    if (Array.isArray(obj)) return "";
     let longest = "";
-    const skip = new Set(["url", "id", "lang", "source", "color", "provider"]);
+    const skip = new Set(["url", "id", "lang", "source", "color", "provider", "media"]);
     for (const [key, val] of Object.entries(obj)) {
       if (skip.has(key)) continue;
       if (typeof val === "string" && val.length > longest.length && val.length > 20) {
         longest = val;
-      } else if (typeof val === "object" && val !== null) {
+      } else if (typeof val === "object" && val !== null && !Array.isArray(val)) {
         const nested = findLongestString(val, maxDepth - 1);
-        if (nested.length > longest.length) longest = nested;
+        if (typeof nested === "string" && nested.length > longest.length) {
+          longest = nested;
+        }
       }
     }
     return longest;
